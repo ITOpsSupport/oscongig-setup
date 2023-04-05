@@ -1,0 +1,5 @@
+---
+#Enter variable for puppet.conf ## ex- certname: n5ckmn03.ieil.net & server name - server: puppetdc5.ieil.net
+certname: n5ckmn03.ieil.net
+server: puppetdc5.ieil.net
+######

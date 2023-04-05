@@ -1,0 +1,100 @@
+---
+- hosts: basic-setup
+  become: true
+  vars_files:
+    - vars/puppet_vars.yaml
+
+- name: Check ifcfg files and copy if necessary
+  tasks:
+    - name: Set hostname
+      hostname:
+        name: "{{ hostname }}"
+      tags:
+        - hostname
+        
+    - name: Check ifcfg files exist
+      stat:
+        path: "/etc/sysconfig/network-scripts/{{ item }}"
+      register: ifcfg_files
+      with_items:
+        - ifcfg-eth0
+        - ifcfg-eth1
+        - ifcfg-bond0
+        - ifcfg-bond1
+
+    - name: Check if all ifcfg files exist
+      fail:
+        msg: "All ifcfg files not present"
+      when:
+        - ifcfg_files.results | map(attribute='stat.exists') | list != [True, True, True, True]
+
+    - name: Copy bond ifcfg files
+      copy:
+        src: "/vars/{{ item }}"
+        dest: "/etc/sysconfig/network-scripts/{{ item }}"
+        mode: "0644"
+        owner: "root"
+        group: "root"
+      with_items:
+        - ifcfg-bond0
+        - ifcfg-bond1
+      when:
+        - ifcfg_files.results | map(attribute='stat.exists') | list == [True, True, True, True]
+
+    - name: Copy eth ifcfg files
+      copy:
+        src: "/vars/{{ item }}"
+        dest: "/etc/sysconfig/network-scripts/{{ item }}"
+        mode: "0644"
+        owner: "root"
+        group: "root"
+      with_items:
+        - ifcfg-eth0
+        - ifcfg-eth1
+      when:
+        - ifcfg_files.results[2].stat.exists == False and ifcfg_files.results[3].stat.exists == False
+
+    - name: Ensure p3p1 and p3p2 files are moved to /tmp
+      shell: mv /etc/sysconfig/network-scripts/{{ item }} /tmp
+      with_items:
+        - ifcfg-p3p1
+        - ifcfg-p3p2
+      args:
+        creates: "/tmp/{{ item }}"
+      ignore_errors: yes
+
+    - name: Restart network service
+      service:
+        name: network
+        state: restarted
+      notify:
+        - Set date with ntpdate
+
+    - name: Set date with ntpdate
+      command: ntpdate ntpdc5.ieil.net
+      async: 0
+      poll: 0
+      ignore_errors: yes
+      changed_when: false
+      when: "'network' in ansible_facts.services and ansible_facts.services['network'].state == 'running'"
+
+###########Part 2 Puppet 
+
+    - name: Configure puppet agent
+      block:
+        - name: Set puppet certname
+          lineinfile:
+            path: /etc/puppetlabs/puppet/puppet.conf
+            regexp: "^certname = "
+            line: "certname = {{ certname }}"
+        - name: Set puppet server
+          lineinfile:
+            path: /etc/puppetlabs/puppet/puppet.conf
+            regexp: "^server = "
+            line: "server = {{ server }}"
+      when: ansible_os_family == 'RedHat'
+    - name: Restart puppet agent service
+      service:
+        name: puppet
+        state: restarted
+

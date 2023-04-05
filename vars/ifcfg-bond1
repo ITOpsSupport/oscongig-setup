@@ -1,0 +1,8 @@
+DEVICE=bond1
+USERCTL=no
+BOOTPROTO=none
+ONBOOT=yes
+IPADDR=
+NETMASK=
+BONDING_OPTS="mode=1 miimon=100"
+TYPE=bond
