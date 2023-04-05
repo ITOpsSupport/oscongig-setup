@@ -3,7 +3,7 @@
   become: true
   vars_files:
     - vars/puppet_vars.yaml
-
+    - vars/hostname_vars.yaml
 - name: Check ifcfg files and copy if necessary
   tasks:
     - name: Set hostname
